@@ -1,7 +1,7 @@
+from os import environ
 import discord
-from commands import parse_message
-from util import debug_print
-from secrets import token
+from commands.list import all_commands
+from commands.util import debug_print, tokenize
 
 client = discord.Client()
 
@@ -16,6 +16,21 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    await parse_message(message)
+    command, tokens = await tokenize(message.content)
+
+    if command:
+        if command in all_commands.keys():
+            await all_commands[command]['callback'](message, tokens)
+        else:
+            await message.channel.send(f'`{command}` is not a command!')
+
+token = ''
+
+try:
+    with open('secrets.gef', 'r') as secret:
+        token = secret.read().strip('\r\n\t ')
+except:
+    token = environ['WHEATLEY_TOKEN']
+
 
 client.run(token)
