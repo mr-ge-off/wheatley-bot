@@ -1,3 +1,4 @@
+from importlib import import_module
 from os import environ
 import discord
 from commands.list import all_commands
@@ -27,9 +28,8 @@ async def on_message(message):
 token = ''
 
 try:
-    with open('secrets.gef', 'r') as secret:
-        token = secret.read().strip('\r\n\t ')
-except:
+    token = import_module('secrets').discord_key
+except NameError:
     token = environ['WHEATLEY_TOKEN']
 
 
