@@ -1,29 +1,27 @@
 from importlib import import_module
 from os import environ
-import discord
-from commands.list import all_commands
-from commands.util import debug_print, tokenize
+from discord.ext import commands
+from cogs.admin import Admin
+from cogs.voice import Voice
+from cogs.text import Text
 
-client = discord.Client()
+bot = commands.Bot(command_prefix=['!', '$'])
 
-@client.event
+@bot.event
 async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+    print(f'We have logged in as {bot.user}')
 
-@client.event
-async def on_message(message):
 
-    # don't parse messages the bot itself sends
-    if message.author == client.user:
-        return
+@bot.command()
+async def echo(ctx, *args):
+    """Echoes back whatever you send it."""
 
-    command, tokens = await tokenize(message.content)
+    await ctx.send(' '.join(args))
 
-    if command:
-        if command in all_commands.keys():
-            await all_commands[command]['callback'](message, tokens)
-        else:
-            await message.channel.send(f'`{command}` is not a command!')
+# add all the cogs we have
+bot.add_cog(Voice(bot))
+bot.add_cog(Admin(bot))
+bot.add_cog(Text(bot))
 
 token = ''
 
@@ -33,4 +31,4 @@ except NameError:
     token = environ['WHEATLEY_TOKEN']
 
 
-client.run(token)
+bot.run(token)
