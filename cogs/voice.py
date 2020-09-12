@@ -1,12 +1,18 @@
-from os import listdir, path
+from importlib import import_module
+from os import environ, listdir, path
 from urllib.parse import urlparse
 from discord.ext import commands
 import discord
-import youtube_dl
+import pafy
+
+
+# Extension method to hot-load this cog
+def setup(bot):
+    bot.add_cog(Voice(bot))
 
 
 class Voice(commands.Cog):
-    enrichment_center_id = '734468488105558026'
+    enrichment_center_id = 734468488105558026
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -22,7 +28,17 @@ class Voice(commands.Cog):
         self.client = None
         self.queue = []
 
+        try:
+            self.token = import_module('secrets').youtube_key
+        except NameError:
+            self.token = environ['YOUTUBE_TOKEN']
 
+        pafy.set_api_key(self.token)
+
+
+    ###########################################################################
+    # COMMANDS                                                                #
+    ###########################################################################
     @commands.command()
     async def join(self, ctx):
         """Joins the voice channel you're in."""
@@ -54,10 +70,7 @@ class Voice(commands.Cog):
             await ctx.channel.send('I have to have joined a channel to play !music.')
             return
 
-        url = link if urlparse(link).netloc != '' else await search(args)
-        with youtube_dl.YoutubeDL(Voice.ydl_opts) as ydl:
-            audio_url = ydl.extract_info(url, download=False)['formats'][0]['url']
-            self.client.play(discord.FFmpegPCMAudio(audio_url), after=lambda e: print('done', e))
+        await self._play(link)
 
 
     @commands.command()
@@ -84,3 +97,32 @@ class Voice(commands.Cog):
 
         else:
             await ctx.channel.send(f"{effect_name} is not a valid sound effect.")
+
+
+    ###########################################################################
+    # PRIVATE helper methods                                                  #
+    ###########################################################################
+    def _cleanup(filename, exception):
+        if exception:
+            print(f"Encountered exception: {exception}")
+
+        print(f"Removing {filename}...")
+        os.remove(filename)
+        print("Done!")
+
+
+    async def _play(self, link):
+        url = link if urlparse(link).netloc != '' else await search(args)
+
+        yt_data = pafy.new(url)
+        audio = yt_data.getbestaudio()
+        print(audio)
+        filepath=path.join('.', 'music', audio.title)
+        print(filepath)
+        filename = audio.download()
+        print(filename)
+
+        self.client.play(
+            discord.FFmpegPCMAudio(filename),
+            after=lambda e: Voice._cleanup(filename, e)
+        )
