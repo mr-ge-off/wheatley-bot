@@ -27,14 +27,14 @@ class Admin(commands.Cog):
 
     # check the lock status
     async def bot_check(self, ctx):
-        if (self.lockId and
-            ctx.author.id == self.lockId or 
-            Admin.admin_id in [role.id for role in ctx.author.roles] and
-            ctx.command.name == 'unlock' or
+        if ((self.lockId and
+            ctx.author.id == self.lockId) or 
+            (Admin.admin_id in [role.id for role in ctx.author.roles] and
+            ctx.command.name == 'unlock') or
             not self.lockId):
             return True
 
-        await ctx.send(f"I'm currently locked to {self.bot.get_user(self.lockId[0]).mention}")
+        await ctx.send(f"I'm currently locked to {self.bot.get_user(self.lockId).mention}")
         return False
 
 
@@ -44,7 +44,7 @@ class Admin(commands.Cog):
 
         locker = user if user else ctx.author
         await ctx.send(f"I've been locked to {locker.mention}.")
-        self.lockId = [locker.id]
+        self.lockId = locker.id
 
 
     @commands.command()
@@ -54,8 +54,11 @@ class Admin(commands.Cog):
         await ctx.send("I'm now unlocked.")
         self.lockId = None
 
+
     @commands.command()
     async def reloadcog(self, ctx, cogname):
+        """Hotloads a cog (for dev only)"""
+        
         if cogname in [cog.lower() for cog in self.bot.cogs]:
             self.bot.reload_extension(f'cogs.{cogname}')
             print(f'reloaded cogs.{cogname}')

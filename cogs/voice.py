@@ -1,5 +1,5 @@
 from importlib import import_module
-from os import environ, listdir, path
+from os import environ, listdir, path, remove
 from urllib.parse import urlparse
 from discord.ext import commands
 import discord
@@ -9,6 +9,11 @@ import pafy
 # Extension method to hot-load this cog
 def setup(bot):
     bot.add_cog(Voice(bot))
+
+def teardown(bot):
+    if bot.voice_clients:
+        for client in voice_clients:
+            client.disconnect()
 
 
 class Voice(commands.Cog):
@@ -107,7 +112,7 @@ class Voice(commands.Cog):
             print(f"Encountered exception: {exception}")
 
         print(f"Removing {filename}...")
-        os.remove(filename)
+        remove(filename)
         print("Done!")
 
 
@@ -116,13 +121,11 @@ class Voice(commands.Cog):
 
         yt_data = pafy.new(url)
         audio = yt_data.getbestaudio()
-        print(audio)
-        filepath=path.join('.', 'music', audio.title)
+        filepath = "./queue/song" + '.' + audio.extension
+        audio.download(filepath=filepath)
         print(filepath)
-        filename = audio.download()
-        print(filename)
 
         self.client.play(
-            discord.FFmpegPCMAudio(filename),
-            after=lambda e: Voice._cleanup(filename, e)
+            discord.FFmpegPCMAudio(filepath),
+            after=lambda e: Voice._cleanup(filepath, e)
         )
