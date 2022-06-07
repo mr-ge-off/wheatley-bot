@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 from importlib import import_module
 from os import environ
 from discord import AllowedMentions
