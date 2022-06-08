@@ -2,3 +2,4 @@ discord
 emoji
 pafy
 youtube_dl
+pynacl

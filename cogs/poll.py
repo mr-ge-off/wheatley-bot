@@ -4,7 +4,7 @@ import discord
 
 # Extension method to hot-load this cog
 def setup(bot):
-    bot.add_cog(Text(bot))
+    bot.add_cog(Poll(bot))
 
 
 class Poll(commands.Cog):

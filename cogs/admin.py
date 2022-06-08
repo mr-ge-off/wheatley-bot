@@ -15,7 +15,6 @@ class Admin(commands.Cog):
         self.bot = bot
         self.lockId = None
 
-
     async def cog_check(self, ctx):
 
         # check that the right prefix is used and the user is an admin
@@ -24,19 +23,17 @@ class Admin(commands.Cog):
 
         return False
 
-
     # check the lock status
     async def bot_check(self, ctx):
         if ((self.lockId and
             ctx.author.id == self.lockId) or 
             (Admin.admin_id in [role.id for role in ctx.author.roles] and
             ctx.command.name == 'unlock') or
-            not self.lockId):
+                not self.lockId):
             return True
 
         await ctx.send(f"I'm currently locked to {self.bot.get_user(self.lockId).mention}")
         return False
-
 
     @commands.command()
     async def lock(self, ctx, user: discord.User=None):
@@ -46,14 +43,12 @@ class Admin(commands.Cog):
         await ctx.send(f"I've been locked to {locker.mention}.")
         self.lockId = locker.id
 
-
     @commands.command()
     async def unlock(self, ctx):
         """Allows me to receive commands from anyone."""
 
         await ctx.send("I'm now unlocked.")
         self.lockId = None
-
 
     @commands.command()
     async def reloadcog(self, ctx, cogname):

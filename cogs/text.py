@@ -27,10 +27,23 @@ class Text(commands.Cog):
         if len(words) == 1:
             chars = list(dict.fromkeys(words[0].lower()))
             for char in chars:
-                emoj = emojize(f':regional_indicator_{char}:', use_aliases=True)
+                emoj = emojize(f':regional_indicator_{char}:', language='alias')
                 await past_message.add_reaction(emoj)
         else:
             for token in words:
-                emoj = emojize(f':{token.lower()}:', use_aliases=True)
-                if emoj.startswith(':'): continue
+                emoj = emojize(f':{token.lower()}:', language='alias')
+                if emoj.startswith(':'):
+                    continue
                 await past_message.add_reaction(emoj)
+
+    @commands.command()
+    async def gik(self, ctx):
+        """Gak!"""
+
+        await ctx.send('gak!')
+
+    @commands.command()
+    async def gak(self, ctx):
+        """Gik!"""
+
+        await ctx.send('gik!')
