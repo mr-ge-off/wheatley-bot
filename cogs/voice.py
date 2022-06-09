@@ -1,5 +1,6 @@
+import asyncio
 from importlib import import_module
-from os import environ, listdir, path, remove
+from os import environ, listdir, path, remove, getcwd
 from urllib.parse import urlparse
 from discord.ext import commands
 import discord
@@ -26,7 +27,13 @@ class Voice(commands.Cog):
     YDL_OPTS = {
         'format': 'bestaudio/best',
         'default_search': 'auto',
-        'outtmpl': './queue/%(title).%(ext)'
+        'restrictfilenames': True,
+        'outtmpl': path.join('queue','%(title)s.%(ext)s')
+        # 'postprocessors': [{
+        #     'key': 'FFmpegExtractAudio',
+        #     'preferredcodec': 'mp3',
+        #     'preferredquality': '192'
+        # }]
     }
 
     FFMPEG_OPTS = {
@@ -81,8 +88,16 @@ class Voice(commands.Cog):
             return
 
         with youtube_dl.YoutubeDL(Voice.YDL_OPTS) as ydl:
-            audio_data = ydl.extract_info(ydl_inp, download=True)
+            loop = asyncio.get_event_loop()
+            audio_data = await loop.run_in_executor(None, lambda: ydl.extract_info(ydl_inp, download=True))
+            print('past download')
+
+            # this is a little jank, but it's the only way to get URLs w/ '.' in the names
+            # audio_url = '.'.join(ydl.prepare_filename(audio_data).split('.')[:-1]) + '.mp3'
             audio_url = ydl.prepare_filename(audio_data)
+
+            print('audio location: ', audio_url)
+            print('cdw: ', getcwd())
 
             # TODO: playlists
             self.client.play(
