@@ -9,7 +9,7 @@ from cogs.voice import Voice
 from cogs.text import Text
 
 bot = commands.Bot(
-    command_prefix=['!', '$'],
+    command_prefix=commands.when_mentioned_or('!', '$'),
     allowed_mentions=AllowedMentions()
 )
 
