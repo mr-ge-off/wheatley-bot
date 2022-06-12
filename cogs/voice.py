@@ -13,10 +13,7 @@ def setup(bot):
     bot.add_cog(Voice(bot))
 
 
-def _cleanup(filename, exception):
-    if exception:
-        print(f"Encountered exception: {exception}")
-
+def _cleanup(filename):
     print(f"Removing {filename}...")
     remove(filename)
     print("Done!")
@@ -90,13 +87,24 @@ class Voice(commands.Cog):
             return self._extract_info(audio_data, audio_location, stream)
 
     def _queue_after_callback(self, exception, ctx: Context, stream=False):
-        if len(self.queue) == 1:
-            pass
+        if not stream:
+            _cleanup(self.queue[0]['source'])
+
+        self.queue.pop(0)
+
+        for item in self.queue[:]:
+            item['ordinal'] = item['ordinal'] - 1
+
+        # create the next audio source and pass it to the player
+        if len(self.queue) > 0:
+            ctx.voice_client.source = PCMVolumeTransformer(
+                FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS),
+                volume=0.5
+            )
         else:
-            # decrement queue
-            # clean up file if necessary
-            # create the next audio source and pass it to the player
-            pass
+            await ctx.send("Queue's run dry.")
+        # decrement queue
+        # clean up file if necessary
 
     # (len(self.queue) > 0 and self.queue.pop(0)) and (stream or _cleanup(data_dict['source'], e))
 
@@ -128,7 +136,7 @@ class Voice(commands.Cog):
         if ctx.voice_client:
             await ctx.voice_client.disconnect()
 
-    @commands.command()
+    @commands.command()  # TODO: playlists, enqueuing
     async def play(self, ctx: Context, *link, stream: bool = True):
         """-> Plays the linked YouTube video."""
 
@@ -137,7 +145,6 @@ class Voice(commands.Cog):
 
         data_dict = await self._download(link, stream)
 
-        # TODO: playlists
         ctx.voice_client.play(
             PCMVolumeTransformer(FFmpegPCMAudio(data_dict['source'], **Voice.FFMPEG_OPTS), volume=0.5),
             after=lambda e: self._queue_after_callback(e, ctx, stream)
@@ -215,7 +222,7 @@ class Voice(commands.Cog):
             return
         await ctx.send(f'The volume is currently at {ctx.voice_client.source.volume * 100}%.')
 
-    @volume.command()
+    @volume.command()  # TODO: me
     async def up(self, ctx: Context):
         """-> Sets the volume up 10%, or whatever you tell me.
 
@@ -224,9 +231,9 @@ class Voice(commands.Cog):
 
         if not await check_is_playing(ctx):
             return
-        pass  # TODO: implement
+        pass
 
-    @volume.command()
+    @volume.command()  # TODO: me
     async def down(self, ctx: Context):
         """-> Sets the volume down 10%, or whatever you tell me.
 
@@ -235,7 +242,7 @@ class Voice(commands.Cog):
 
         if not await check_is_playing(ctx):
             return
-        pass  # TODO: implement
+        pass
 
     @volume.command()
     async def max(self, ctx: Context):
@@ -323,13 +330,21 @@ class Voice(commands.Cog):
 
         if not await check_is_in_voice(ctx):
             return
-        pass
+
+        if len(self.queue) > 0:
+            ctx.voice_client.play(
+                PCMVolumeTransformer(FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS), volume=0.5),
+                after=lambda e: self._queue_after_callback(e, ctx, self.queue[0]['stream'])
+            )
+        else:
+            await ctx.send('Honey, the queue is empty.')
 
     @queue.command()  # TODO: me
-    async def next(self, ctx: Context):
+    async def skip(self, ctx: Context):
         """-> Skip to the next song in the queue."""
 
         if not await check_is_playing(ctx):
             return
 
-        ctx.voice_client.source = None
+        stream = self.queue[0]['stream']
+        self._queue_after_callback(None, ctx, stream)
