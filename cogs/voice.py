@@ -86,27 +86,29 @@ class Voice(commands.Cog):
 
             return self._extract_info(audio_data, audio_location, stream)
 
-    def _queue_after_callback(self, exception, ctx: Context, stream=False):
+    def _queue_after_callback(self, exception, ctx: Context, stream=False, skip=False):
+
+        # clean up file if necessary
         if not stream:
             _cleanup(self.queue[0]['source'])
 
+        # decrement queue
         self.queue.pop(0)
-
         for item in self.queue[:]:
             item['ordinal'] = item['ordinal'] - 1
 
         # create the next audio source and pass it to the player
         if len(self.queue) > 0:
-            ctx.voice_client.source = PCMVolumeTransformer(
-                FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS),
-                volume=0.5
-            )
-        else:
-            await ctx.send("Queue's run dry.")
-        # decrement queue
-        # clean up file if necessary
-
-    # (len(self.queue) > 0 and self.queue.pop(0)) and (stream or _cleanup(data_dict['source'], e))
+            if skip:
+                ctx.voice_client.source = PCMVolumeTransformer(
+                    FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS),
+                    volume=0.5
+                )
+            else:
+                ctx.voice_client.play(
+                    PCMVolumeTransformer(FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS),volume=0.5),
+                    after=lambda e: self._queue_after_callback(e, ctx, self.queue[0]['stream'])
+                )
 
     ###########################################################################
     # COMMANDS                                                                #
@@ -347,4 +349,4 @@ class Voice(commands.Cog):
             return
 
         stream = self.queue[0]['stream']
-        self._queue_after_callback(None, ctx, stream)
+        self._queue_after_callback(None, ctx, stream, True)
