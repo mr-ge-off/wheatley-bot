@@ -4,6 +4,7 @@ from os import listdir, path, remove
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.ext import commands
 from discord.ext.commands.context import Context
+
 import youtube_dl
 
 
@@ -21,9 +22,23 @@ def _cleanup(filename, exception):
     print("Done!")
 
 
-async def _is_playing_check(ctx: Context):
+async def check_is_playing_invert(ctx: Context):
     if ctx.voice_client and ctx.voice_client.is_playing():
         await ctx.send("I'm already `!play`ing something! Try a `!stop` first.")
+        return False
+    return True
+
+
+async def check_is_playing(ctx: Context):
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        return True
+    await ctx.send('I have to be playing something to do that :T')
+    return False
+
+
+async def check_is_in_voice(ctx: Context):
+    if not ctx.voice_client:
+        await ctx.send('I need to be in a voice channel to do that!')
         return False
     return True
 
@@ -35,7 +50,8 @@ class Voice(commands.Cog):
         'format': 'bestaudio/best',
         'default_search': 'auto',
         'restrictfilenames': True,
-        'outtmpl': path.join('queue', '%(title)s.%(ext)s')
+        'outtmpl': path.join('queue', '%(title)s.%(ext)s'),
+        'noplaylist': True,
         # 'postprocessors': [{
         #     'key': 'FFmpegExtractAudio',
         #     'preferredcodec': 'mp3',
@@ -52,12 +68,13 @@ class Voice(commands.Cog):
         self.bot: commands.Bot = bot
         self.queue = []
 
-    def _extract_info(self, ydl_data, source):
+    def _extract_info(self, ydl_data, source, stream):
         return {
             'source': source,
             'name': ydl_data['title'],
             'channel': ydl_data['channel'],
             'ordinal': len(self.queue) + 1,
+            'stream': stream,
         }
 
     async def _download(self, link, stream=True):
@@ -68,14 +85,26 @@ class Voice(commands.Cog):
         with youtube_dl.YoutubeDL(Voice.YDL_OPTS) as ydl:
             loop = asyncio.get_event_loop()
             audio_data = await loop.run_in_executor(None, lambda: ydl.extract_info(ydl_inp, download=not stream))
+            audio_location = audio_data['url'] if stream else ydl.prepare_filename(audio_data)
 
-            return self._extract_info(audio_data, audio_data['url'] if stream else ydl.prepare_filename(audio_data))
+            return self._extract_info(audio_data, audio_location, stream)
+
+    def _queue_after_callback(self, exception, ctx: Context, stream=False):
+        if len(self.queue) == 1:
+            pass
+        else:
+            # decrement queue
+            # clean up file if necessary
+            # create the next audio source and pass it to the player
+            pass
+
+    # (len(self.queue) > 0 and self.queue.pop(0)) and (stream or _cleanup(data_dict['source'], e))
 
     ###########################################################################
     # COMMANDS                                                                #
     ###########################################################################
     @commands.command()
-    async def join(self, ctx):
+    async def join(self, ctx: Context):
         """-> Joins a voice channel.
 
          I'll try to join the channel you're in, or the Enrichment Center otherwise."""
@@ -87,22 +116,23 @@ class Voice(commands.Cog):
             elif ctx.voice_client.channel != voice.channel:
                 await ctx.voice_client.move_to(voice.channel)
         else:
-            ctx.voice_client = await self.bot.get_channel(self.ENRICHMENT_CENTER_ID).connect()
+            await self.bot.get_channel(self.ENRICHMENT_CENTER_ID).connect()
 
     @commands.command()
-    async def leave(self, ctx):
+    async def leave(self, ctx: Context):
         """-> Leaves the voice channel I'm in."""
+
+        if not await check_is_in_voice(ctx):
+            return
 
         if ctx.voice_client:
             await ctx.voice_client.disconnect()
 
     @commands.command()
-    @commands.check(_is_playing_check)
-    async def play(self, ctx, *link, stream: bool = True):
+    async def play(self, ctx: Context, *link, stream: bool = True):
         """-> Plays the linked YouTube video."""
 
-        if ctx.voice_client is None:
-            await ctx.send('I have to have joined a channel to play `!music`.')
+        if not await check_is_playing_invert(ctx):
             return
 
         data_dict = await self._download(link, stream)
@@ -110,13 +140,15 @@ class Voice(commands.Cog):
         # TODO: playlists
         ctx.voice_client.play(
             PCMVolumeTransformer(FFmpegPCMAudio(data_dict['source'], **Voice.FFMPEG_OPTS), volume=0.5),
-            after=lambda e: (len(self.queue) > 0 and self.queue.pop(0)) and (stream or _cleanup(data_dict['source'], e))
+            after=lambda e: self._queue_after_callback(e, ctx, stream)
         )
 
     @commands.command()
-    @commands.check(_is_playing_check)
-    async def effect(self, ctx, effect_name):
+    async def effect(self, ctx: Context, effect_name):
         """-> Plays a sound effect from a list of effects."""
+
+        if not await check_is_playing_invert(ctx):
+            return
 
         if ctx.voice_client is None:
             await ctx.send('I have to have joined a channel to play `!music`.')
@@ -126,68 +158,150 @@ class Voice(commands.Cog):
             await ctx.send('You need to tell me what `!effect` to play.')
             return
 
-        all_effects = { 
+        all_effects = {
             effect.split('.')[0]: path.join('effects', effect) for effect in listdir('./effects')
         }
 
         if effect_name in all_effects:
             ctx.voice_client.play(
                 PCMVolumeTransformer(FFmpegPCMAudio(all_effects[effect_name]), volume=0.5),
-                after=lambda e: print('Finished playing.', e)
+                after=lambda e: print('Finished playing effect.', e)
             )
 
         else:
             await ctx.channel.send(f"{effect_name} is not a valid sound effect.")
 
     @commands.command()
-    async def stop(self, ctx):
+    async def stop(self, ctx: Context):
         """-> Stops the currently playing song."""
 
         if ctx.voice_client:
             ctx.voice_client.stop()
 
     @commands.command()
-    async def pause(self, ctx):
+    async def pause(self, ctx: Context):
         """-> Pauses the currently playing song."""
 
         if ctx.voice_client:
             ctx.voice_client.pause()
 
     @commands.command()
-    async def resume(self, ctx):
+    async def resume(self, ctx: Context):
         """-> Resumes playing the current song."""
 
         if ctx.voice_client:
             ctx.voice_client.resume()
 
     ###########################################################################
-    # QUEUE COMMANDS                                                          #
+    # VOLUME COMMANDS                                                         #
     ###########################################################################
     @commands.group()
-    async def queue(self, ctx):
-        """-> Commands for manipulating the music queue"""
+    async def volume(self, ctx: Context):
+        """-> Commands for manipulating volume.
+
+        If no valid subcommand is given, acts as an alias
+        for !volume current."""
+
+        if ctx.subcommand_passed and ctx.invoked_subcommand is None:
+            await ctx.send("Hey, that's not a `!volume` command!")
+        elif not ctx.subcommand_passed:
+            await self.current(ctx)
+
+    @volume.command()
+    async def current(self, ctx: Context):
+        """-> Tells the current volume."""
+
+        if not await check_is_playing(ctx):
+            return
+        await ctx.send(f'The volume is currently at {ctx.voice_client.source.volume * 100}%.')
+
+    @volume.command()
+    async def up(self, ctx: Context):
+        """-> Sets the volume up 10%, or whatever you tell me.
+
+        The volume change must be given as a percent,
+        and cannot exceed 100%."""
+
+        if not await check_is_playing(ctx):
+            return
+        pass  # TODO: implement
+
+    @volume.command()
+    async def down(self, ctx: Context):
+        """-> Sets the volume down 10%, or whatever you tell me.
+
+        The volume change must be given as a percent,
+        and cannot exceed 100%."""
+
+        if not await check_is_playing(ctx):
+            return
+        pass  # TODO: implement
+
+    @volume.command()
+    async def max(self, ctx: Context):
+        """-> Maxes out the volume."""
+
+        if not await check_is_playing(ctx):
+            return
+        ctx.voice_client.source.volume = 1.0
+
+    @volume.command()
+    async def mute(self, ctx: Context):
+        """-> Mutes the volume."""
+
+        if not await check_is_playing(ctx):
+            return
+
+        ctx.voice_client.source.volume = 0.0
+
+    ###########################################################################
+    # QUEUE COMMANDS                                                          #
+    ###########################################################################
+    @commands.group()  # TODO: adding
+    async def queue(self, ctx: Context):
+        """-> Commands for manipulating the music queue.
+
+        If no valid subcommand is given, acts as an alias
+        for !queue add [args...]"""
 
         if ctx.invoked_subcommand is None:
             await ctx.send("Hey, that's not a `!queue` command!")
 
     @queue.command()
-    async def add(self, ctx, *item, stream=True):
-        """-> Adds an item to the music queue."""
+    async def add(self, ctx: Context, *item, stream: bool = True):
+        """-> Adds an item to the music queue.
+
+        I'll try and stream it first, though streaming
+        runs the risk of being unstable. If you pass me
+        stream=False, I'll actually download the song."""
 
         self.queue.append(await self._download(item, stream))
         await ctx.send(f"Added `{self.queue[-1]['name']}` to the queue.")
 
     @queue.command()
-    async def remove(self, ctx, item: int = None):
+    async def remove(self, ctx: Context, item: int = 1):
         """-> Removes an item from the music queue."""
 
-        removed = self.queue.pop(item - 1) if item else self.queue.pop(0)
-        for item in self.queue:
+        removed = self.queue.pop(item - 1)
+        for item in self.queue[item - 1:]:
             item['ordinal'] = item['ordinal'] - 1
         await ctx.send(f"Removed `{removed['name']}` from the queue.")
 
     @queue.command()
-    async def show(self, ctx):
+    async def clear(self, ctx: Context):
+        """-> Empties the queue in its entirety."""
+
+        self.queue.clear()
+        await ctx.send('Cleared out the queue! No music for you.')
+
+    @queue.command()
+    async def empty(self, ctx: Context):
+        """-> Alias for !clear."""
+
+        await self.clear(ctx)
+
+    @queue.command()
+    async def show(self, ctx: Context):
         """-> Show what's in the queue."""
 
         if len(self.queue) == 0:
@@ -198,19 +312,24 @@ class Voice(commands.Cog):
         await ctx.send(f'Currently Queued:\n```{transforms}```')
 
     @queue.command()
-    async def list(self, ctx):
+    async def list(self, ctx: Context):
         """-> Alias for !show."""
 
         await self.show(ctx)
 
-    @queue.command()
-    @commands.check(_is_playing_check)
-    async def start(self, ctx):
+    @queue.command()  # TODO: me
+    async def start(self, ctx: Context):
         """-> Start playing the queue."""
+
+        if not await check_is_in_voice(ctx):
+            return
         pass
 
-    @queue.command()
-    async def skip(self, ctx):
+    @queue.command()  # TODO: me
+    async def next(self, ctx: Context):
         """-> Skip to the next song in the queue."""
-        pass
 
+        if not await check_is_playing(ctx):
+            return
+
+        ctx.voice_client.source = None
