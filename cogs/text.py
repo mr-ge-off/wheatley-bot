@@ -39,7 +39,7 @@ class Text(commands.Cog):
 
     @commands.command()
     async def react(self, ctx, *words):
-        """Adds reactions to the last post.
+        """-> Adds reactions to the last post.
 
         Will add as many letters of a single word as I can,
         or will attempt to add each named emoji if more than
@@ -60,13 +60,19 @@ class Text(commands.Cog):
                 await past_message.add_reaction(emoj)
 
     @commands.command()
+    async def echo(self, ctx, *args):
+        """-> Echo back whatever you send me."""
+
+        await ctx.send(' '.join(args))
+
+    @commands.command()
     async def gik(self, ctx):
-        """Gak!"""
+        """-> Gak!"""
 
         await ctx.send('gak!')
 
     @commands.command()
     async def gak(self, ctx):
-        """Gik!"""
+        """-> Gik!"""
 
         await ctx.send('gik!')

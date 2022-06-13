@@ -1,6 +1,5 @@
-from os import listdir
-from discord.ext import commands
 import discord
+from discord.ext import commands
 
 
 # Extension method to hot-load this cog
@@ -9,7 +8,7 @@ def setup(bot):
 
 
 class Admin(commands.Cog):
-    admin_id = 497958142919966731
+    ADMIN_ROLE_ID = 497958142919966731
 
     def __init__(self, bot):
         self.bot = bot
@@ -19,7 +18,7 @@ class Admin(commands.Cog):
 
         # check that the right prefix is used and the user is an admin
         if ctx.prefix == '$' and isinstance(ctx.author, discord.Member):
-            return Admin.admin_id in [role.id for role in ctx.author.roles]
+            return Admin.ADMIN_ROLE_ID in [role.id for role in ctx.author.roles]
 
         return False
 
@@ -27,8 +26,8 @@ class Admin(commands.Cog):
     async def bot_check(self, ctx):
         if ((self.lockId and
             ctx.author.id == self.lockId) or 
-            (Admin.admin_id in [role.id for role in ctx.author.roles] and
-            ctx.command.name == 'unlock') or
+            (Admin.ADMIN_ROLE_ID in [role.id for role in ctx.author.roles] and
+             ctx.command.name == 'unlock') or
                 not self.lockId):
             return True
 
@@ -36,8 +35,8 @@ class Admin(commands.Cog):
         return False
 
     @commands.command()
-    async def lock(self, ctx, user: discord.User=None):
-        """Locks me to only receive commands from one user."""
+    async def lock(self, ctx, user: discord.User = None):
+        """-> Locks me to only receive commands from one user."""
 
         locker = user if user else ctx.author
         await ctx.send(f"I've been locked to {locker.mention}.")
@@ -45,14 +44,14 @@ class Admin(commands.Cog):
 
     @commands.command()
     async def unlock(self, ctx):
-        """Allows me to receive commands from anyone."""
+        """-> Allows me to receive commands from anyone."""
 
         await ctx.send("I'm now unlocked.")
         self.lockId = None
 
     @commands.command()
     async def reloadcog(self, ctx, cogname):
-        """Hotloads a cog (for dev only)"""
+        """-> Hot-loads a cog (for dev only)"""
         
         if cogname in [cog.lower() for cog in self.bot.cogs]:
             self.bot.reload_extension(f'cogs.{cogname}')

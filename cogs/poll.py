@@ -1,5 +1,5 @@
-from discord.ext import commands
 import discord
+from discord.ext import commands
 
 
 # Extension method to hot-load this cog

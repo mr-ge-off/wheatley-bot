@@ -13,16 +13,11 @@ bot = commands.Bot(
     allowed_mentions=AllowedMentions()
 )
 
+
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
 
-
-@bot.command()
-async def echo(ctx, *args):
-    """Echoes back whatever you send it."""
-
-    await ctx.send(' '.join(args))
 
 # add all the cogs we have
 # bot.add_cog(Voice(bot))
@@ -31,6 +26,8 @@ async def echo(ctx, *args):
 bot.load_extension('cogs.voice')
 bot.load_extension('cogs.admin')
 bot.load_extension('cogs.text')
+bot.load_extension('cogs.poll')
+bot.load_extension('cogs.silly')
 
 token = ''
 

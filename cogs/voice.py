@@ -87,6 +87,8 @@ class Voice(commands.Cog):
             return self._extract_info(audio_data, audio_location, stream)
 
     def _queue_after_callback(self, exception, ctx: Context, stream=False, skip=False):
+        if exception:
+            print('Exception occurred: ', exception)
 
         # clean up file if necessary
         if not stream:
@@ -106,7 +108,7 @@ class Voice(commands.Cog):
                 )
             else:
                 ctx.voice_client.play(
-                    PCMVolumeTransformer(FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS),volume=0.5),
+                    PCMVolumeTransformer(FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS), volume=0.5),
                     after=lambda e: self._queue_after_callback(e, ctx, self.queue[0]['stream'])
                 )
 
@@ -326,7 +328,7 @@ class Voice(commands.Cog):
 
         await self.show(ctx)
 
-    @queue.command()  # TODO: me
+    @queue.command()
     async def start(self, ctx: Context):
         """-> Start playing the queue."""
 
@@ -341,7 +343,7 @@ class Voice(commands.Cog):
         else:
             await ctx.send('Honey, the queue is empty.')
 
-    @queue.command()  # TODO: me
+    @queue.command()
     async def skip(self, ctx: Context):
         """-> Skip to the next song in the queue."""
 
