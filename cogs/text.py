@@ -36,6 +36,18 @@ class Text(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.big_letter = False  # start sponge-casing at small letter
+
+    def _spongecase_transform(self, content):
+        new_words = []
+        for word in content:
+            new_word = ''
+            for c in word:
+                new_word = new_word + (c.upper() if self.big_letter else c.lower())
+                self.big_letter = not self.big_letter
+            new_words = new_words + [new_word]
+
+        return ' '.join(new_words)
 
     @commands.command()
     async def react(self, ctx, *words):
@@ -76,3 +88,8 @@ class Text(commands.Cog):
         """-> Gik!"""
 
         await ctx.send('gik!')
+
+    @commands.command()
+    async def spongecase(self, ctx, *rest):
+        await ctx.send(self._spongecase_transform(rest))
+
