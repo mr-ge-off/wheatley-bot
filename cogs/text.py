@@ -44,7 +44,8 @@ class Text(commands.Cog):
             new_word = ''
             for c in word:
                 new_word = new_word + (c.upper() if self.big_letter else c.lower())
-                self.big_letter = not self.big_letter
+                if c.isalpha():
+                    self.big_letter = not self.big_letter
             new_words = new_words + [new_word]
 
         return ' '.join(new_words)
@@ -72,10 +73,10 @@ class Text(commands.Cog):
                 await past_message.add_reaction(emoj)
 
     @commands.command()
-    async def echo(self, ctx, *args):
+    async def echo(self, ctx, *words):
         """-> Echo back whatever you send me."""
 
-        await ctx.send(' '.join(args))
+        await ctx.send(' '.join(words))
 
     @commands.command()
     async def gik(self, ctx):
@@ -90,6 +91,13 @@ class Text(commands.Cog):
         await ctx.send('gik!')
 
     @commands.command()
-    async def spongecase(self, ctx, *rest):
-        await ctx.send(self._spongecase_transform(rest))
+    async def spongecase(self, ctx, *words):
+        """-> ExAcTlY wHaT yOu ThInK iT dOeS."""
 
+        await ctx.send(self._spongecase_transform(words))
+
+    @commands.command()
+    async def mock(self, ctx, *words):
+        "-> AlIaS fOr `!spongecase`."""
+
+        await self.spongecase(ctx, *words)
