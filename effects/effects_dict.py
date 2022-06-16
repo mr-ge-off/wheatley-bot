@@ -1,4 +1,5 @@
 effects_dict = {
+    'awful              ': "-> MIA's Paper Planes with the grapefruit sound",
     'bf_rockets         ': '-> "Watch those wrist rockets!" (Star Wars BF 2 on PS2)',
     'bf_simulation      ': '-> "Just like the simulations" (Star Wars BF 2 on PS2)',
     'jp_double          ': '-> "Double Jeopardy" ringer',

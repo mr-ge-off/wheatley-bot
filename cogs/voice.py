@@ -374,7 +374,9 @@ class Voice(commands.Cog):
         """-> Shows all the sound effects I know."""
 
         transform = f'\n'.join([key + ' ' + effects_dict[key] for key in sorted(effects_dict.keys())])
-        await ctx.send(f'```Name                -> Description\n{transform}```')
+        await ctx.send('```Name                -> Description\n' +
+                       '-----------------------------------------------------------' +
+                       f'{transform}```')
 
     @list.command(name='queue')
     async def queue_list(self, ctx: Context):
