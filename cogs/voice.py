@@ -318,18 +318,12 @@ class Voice(commands.Cog):
             item['ordinal'] = item['ordinal'] - 1
         await ctx.send(f"Removed `{removed['name']}` from the queue.")
 
-    @queue.command()
+    @queue.command(aliases=['empty'])
     async def clear(self, ctx: Context):
         """-> Empties the queue in its entirety."""
 
         self.queue.clear()
         await ctx.send('Cleared out the queue! No music for you.')
-
-    @queue.command()
-    async def empty(self, ctx: Context):
-        """-> Alias for !clear."""
-
-        await self.clear(ctx)
 
     @queue.command()
     async def start(self, ctx: Context):
