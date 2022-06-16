@@ -9,3 +9,6 @@ This bot is built using Python3.  It currently has the following dependencies, a
 
 It's a lazy WIP, and I'll get to it when I get to it.
 
+All TTS functionality (currently limited to Wheatley's voice) are generated from [15.ai](https://15.ai), a crazy cool
+natural voice generation project.
+

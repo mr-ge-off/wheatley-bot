@@ -1,5 +1,7 @@
-import asyncio
+from asyncio import get_event_loop, run_coroutine_threadsafe
 from os import listdir, path, remove
+
+from effects.effects_dict import effects_dict
 
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.ext import commands
@@ -33,9 +35,10 @@ async def check_is_playing(ctx: Context):
     return False
 
 
-async def check_is_in_voice(ctx: Context):
+async def check_is_in_voice(ctx: Context, warn = True):
     if not ctx.voice_client:
-        await ctx.send('I need to be in a voice channel to do that!')
+        if warn:
+            await ctx.send('I need to be in a voice channel to do that!')
         return False
     return True
 
@@ -65,13 +68,14 @@ class Voice(commands.Cog):
         self.bot: commands.Bot = bot
         self.queue = []
 
-    def _extract_info(self, ydl_data, source, stream):
+    def _extract_info(self, ydl_data, source, stream, url):
         return {
-            'source': source,
-            'name': ydl_data['title'],
             'channel': ydl_data['channel'],
+            'name': ydl_data['title'],
             'ordinal': len(self.queue) + 1,
+            'source': source,
             'stream': stream,
+            'url': url,
         }
 
     async def _download(self, link, stream=True):
@@ -80,11 +84,11 @@ class Voice(commands.Cog):
         ydl_inp = link[0] if len(link) == 1 else ' '.join(link)
 
         with youtube_dl.YoutubeDL(Voice.YDL_OPTS) as ydl:
-            loop = asyncio.get_event_loop()
+            loop = get_event_loop()
             audio_data = await loop.run_in_executor(None, lambda: ydl.extract_info(ydl_inp, download=not stream))
             audio_location = audio_data['url'] if stream else ydl.prepare_filename(audio_data)
 
-            return self._extract_info(audio_data, audio_location, stream)
+            return self._extract_info(audio_data, audio_location, stream, None)
 
     def _queue_after_callback(self, exception, ctx: Context, stream=False, skip=False):
         if exception:
@@ -99,8 +103,14 @@ class Voice(commands.Cog):
         for item in self.queue[:]:
             item['ordinal'] = item['ordinal'] - 1
 
-        # create the next audio source and pass it to the player
-        if len(self.queue) > 0:
+        # if we're on the last item, exit the voice channel
+        if len(self.queue) == 0:
+            coro = ctx.voice_client.disconnect()
+            future = run_coroutine_threadsafe(coro, self.bot.loop)
+            future.result()
+
+        # else, create the next audio source and pass it to the player
+        elif len(self.queue) > 0:
             if skip:
                 ctx.voice_client.source = PCMVolumeTransformer(
                     FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS),
@@ -161,9 +171,17 @@ class Voice(commands.Cog):
         if not await check_is_playing_invert(ctx):
             return
 
+        def after_func(context: Context, e):
+            if e:
+                print('Exception occurred: ', e)
+            print('Finished playing effect')
+            coro = context.voice_client.disconnect()
+            future = run_coroutine_threadsafe(coro, self.bot.loop)
+
+            future.result()
+
         if ctx.voice_client is None:
-            await ctx.send('I have to have joined a channel to play `!music`.')
-            return
+            await self.join(ctx)
 
         if not effect_name:
             await ctx.send('You need to tell me what `!effect` to play.')
@@ -173,10 +191,12 @@ class Voice(commands.Cog):
             effect.split('.')[0]: path.join('effects', effect) for effect in listdir('./effects')
         }
 
+        print('\n'.join([key + ': ' + value for key, value in all_effects.items()]))
+
         if effect_name in all_effects:
             ctx.voice_client.play(
                 PCMVolumeTransformer(FFmpegPCMAudio(all_effects[effect_name]), volume=0.5),
-                after=lambda e: print('Finished playing effect.', e)
+                after=lambda e: after_func(ctx, e)
             )
 
         else:
@@ -312,28 +332,11 @@ class Voice(commands.Cog):
         await self.clear(ctx)
 
     @queue.command()
-    async def show(self, ctx: Context):
-        """-> Show what's in the queue."""
-
-        if len(self.queue) == 0:
-            await ctx.send('Nothing is currently queued.')
-            return
-
-        transforms = '\n'.join([f"[{item['ordinal']}]: {item['name']} -- {item['channel']}" for item in self.queue])
-        await ctx.send(f'Currently Queued:\n```{transforms}```')
-
-    @queue.command()
-    async def list(self, ctx: Context):
-        """-> Alias for !show."""
-
-        await self.show(ctx)
-
-    @queue.command()
     async def start(self, ctx: Context):
         """-> Start playing the queue."""
 
-        if not await check_is_in_voice(ctx):
-            return
+        if not await check_is_in_voice(ctx, warn=False):
+            await self.join(ctx)
 
         if len(self.queue) > 0:
             ctx.voice_client.play(
@@ -341,7 +344,11 @@ class Voice(commands.Cog):
                 after=lambda e: self._queue_after_callback(e, ctx, self.queue[0]['stream'])
             )
         else:
-            await ctx.send('Honey, the queue is empty.')
+            ctx.voice_client.play(
+                PCMVolumeTransformer(FFmpegPCMAudio('./tts/no_queue_wheatley.wav'), volume=0.5),
+                after=lambda e: (run_coroutine_threadsafe(ctx.voice_client.disconnect(), self.bot.loop).result()
+                                 and (e and print(e)))
+            )
 
     @queue.command()
     async def skip(self, ctx: Context):
@@ -352,3 +359,30 @@ class Voice(commands.Cog):
 
         stream = self.queue[0]['stream']
         self._queue_after_callback(None, ctx, stream, True)
+
+    ###########################################################################
+    # LIST COMMANDS                                                           #
+    ###########################################################################
+    @commands.group(aliases=['show'])
+    async def list(self, ctx: Context):
+        """-> Lists something. Options are 'queue' and 'effects'."""
+        if ctx.invoked_subcommand is None:
+            await ctx.send('Send me something valid to list!')
+
+    @list.command(name='effects')
+    async def eff_list(self, ctx: Context):
+        """-> Shows all the sound effects I know."""
+
+        transform = f'\n'.join([key + ' ' + effects_dict[key] for key in sorted(effects_dict.keys())])
+        await ctx.send(f'```Name                -> Description\n{transform}```')
+
+    @list.command(name='queue')
+    async def queue_list(self, ctx: Context):
+        """-> Show what's in the queue."""
+
+        if len(self.queue) == 0:
+            await ctx.send('Nothing is currently queued.')
+            return
+
+        transforms = '\n'.join([f"[{item['ordinal']}]: {item['name']} -- {item['channel']}" for item in self.queue])
+        await ctx.send(f'Currently Queued:\n```{transforms}```')
