@@ -1,5 +1,6 @@
 from asyncio import get_event_loop, run_coroutine_threadsafe
 from os import listdir, path, remove
+import random
 
 from effects.effects_dict import effects_dict
 
@@ -35,7 +36,7 @@ async def check_is_playing(ctx: Context):
     return False
 
 
-async def check_is_in_voice(ctx: Context, warn = True):
+async def check_is_in_voice(ctx: Context, warn=True):
     if not ctx.voice_client:
         if warn:
             await ctx.send('I need to be in a voice channel to do that!')
@@ -43,20 +44,22 @@ async def check_is_in_voice(ctx: Context, warn = True):
     return True
 
 
-class Voice(commands.Cog):
+class Voice(commands.Cog, name='voice'):
+    """Various commands to be used in a voice channel.
+
+    I'll automatically join a voice channel for all of them.
+    Queueing, volume control, and sound effects are all supported.
+    """
+
     ENRICHMENT_CENTER_ID = 734468488105558026
 
     YDL_OPTS = {
-        'format': 'bestaudio/best',
+        'cachedir': False,
         'default_search': 'auto',
-        'restrictfilenames': True,
-        'outtmpl': path.join('queue', '%(title)s.%(ext)s'),
+        'format': 'bestaudio/best',
         'noplaylist': True,
-        # 'postprocessors': [{
-        #     'key': 'FFmpegExtractAudio',
-        #     'preferredcodec': 'mp3',
-        #     'preferredquality': '192'
-        # }]
+        'outtmpl': path.join('queue', '%(title)s.%(ext)s'),
+        'restrictfilenames': True,
     }
 
     FFMPEG_OPTS = {
@@ -86,6 +89,9 @@ class Voice(commands.Cog):
         with youtube_dl.YoutubeDL(Voice.YDL_OPTS) as ydl:
             loop = get_event_loop()
             audio_data = await loop.run_in_executor(None, lambda: ydl.extract_info(ydl_inp, download=not stream))
+
+            if 'entries' in audio_data:
+                audio_data = audio_data['entries'][0]
             audio_location = audio_data['url'] if stream else ydl.prepare_filename(audio_data)
 
             return self._extract_info(audio_data, audio_location, stream, None)
@@ -121,6 +127,15 @@ class Voice(commands.Cog):
                     PCMVolumeTransformer(FFmpegPCMAudio(self.queue[0]['source'], **Voice.FFMPEG_OPTS), volume=0.5),
                     after=lambda e: self._queue_after_callback(e, ctx, self.queue[0]['stream'])
                 )
+
+    def _disconnect_after_player(self, context: Context, e):
+        if e:
+            print('Exception occurred: ', e)
+        print('Finished playing effect')
+        coro = context.voice_client.disconnect()
+        future = run_coroutine_threadsafe(coro, self.bot.loop)
+
+        future.result()
 
     ###########################################################################
     # COMMANDS                                                                #
@@ -171,15 +186,6 @@ class Voice(commands.Cog):
         if not await check_is_playing_invert(ctx):
             return
 
-        def after_func(context: Context, e):
-            if e:
-                print('Exception occurred: ', e)
-            print('Finished playing effect')
-            coro = context.voice_client.disconnect()
-            future = run_coroutine_threadsafe(coro, self.bot.loop)
-
-            future.result()
-
         if ctx.voice_client is None:
             await self.join(ctx)
 
@@ -191,12 +197,10 @@ class Voice(commands.Cog):
             effect.split('.')[0]: path.join('effects', effect) for effect in listdir('./effects')
         }
 
-        print('\n'.join([key + ': ' + value for key, value in all_effects.items()]))
-
         if effect_name in all_effects:
             ctx.voice_client.play(
                 PCMVolumeTransformer(FFmpegPCMAudio(all_effects[effect_name]), volume=0.5),
-                after=lambda e: after_func(ctx, e)
+                after=lambda e: self._disconnect_after_player(ctx, e)
             )
 
         else:
@@ -222,6 +226,25 @@ class Voice(commands.Cog):
 
         if ctx.voice_client:
             ctx.voice_client.resume()
+
+    @commands.command()
+    async def piss(self, ctx: Context):
+        """-> I say a rude word in voice."""
+
+        if not await check_is_playing_invert(ctx):
+            return
+
+        if ctx.voice_client is None:
+            await self.join(ctx)
+
+        pisses = ['./tts/' + item for item in filter(lambda item: 'piss' in item, listdir('tts'))]
+        random.seed()
+        play_path = random.choice(pisses)
+
+        ctx.voice_client.play(
+            PCMVolumeTransformer(FFmpegPCMAudio(play_path), volume=0.5),
+            after=lambda e: self._disconnect_after_player(ctx, e)
+        )
 
     ###########################################################################
     # VOLUME COMMANDS                                                         #
@@ -288,7 +311,7 @@ class Voice(commands.Cog):
     ###########################################################################
     # QUEUE COMMANDS                                                          #
     ###########################################################################
-    @commands.group()  # TODO: adding
+    @commands.group(aliases=['q'])  # TODO: adding
     async def queue(self, ctx: Context):
         """-> Commands for manipulating the music queue.
 
@@ -304,7 +327,8 @@ class Voice(commands.Cog):
 
         I'll try and stream it first, though streaming
         runs the risk of being unstable. If you pass me
-        stream=False, I'll actually download the song."""
+        stream=False, I'll actually download the song.
+        """
 
         self.queue.append(await self._download(item, stream))
         await ctx.send(f"Added `{self.queue[-1]['name']}` to the queue.")
@@ -344,7 +368,7 @@ class Voice(commands.Cog):
                                  and (e and print(e)))
             )
 
-    @queue.command()
+    @queue.command()  # TODO: investigate bad queuing
     async def skip(self, ctx: Context):
         """-> Skip to the next song in the queue."""
 
@@ -360,6 +384,7 @@ class Voice(commands.Cog):
     @commands.group(aliases=['show'])
     async def list(self, ctx: Context):
         """-> Lists something. Options are 'queue' and 'effects'."""
+
         if ctx.invoked_subcommand is None:
             await ctx.send('Send me something valid to list!')
 
