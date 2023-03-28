@@ -1,17 +1,17 @@
 import { REST, Routes } from 'discord.js';
 import * as dotenv from 'dotenv';
 
-import text from './commands/text';
+import text from './commands/text.js';
 
 
-// configure env vars and client secrets :D
+// configure env vars and secrets ;)
 dotenv.config();
 
 const regType = process.argv[2] // args 0 and 1 are `node` and the file name, respectively
 
 const attrsToJSONArray = (list) => {
-    ret = [];
-    for (item in list) {
+    let ret = [];
+    for (const item of list) {
         ret.push(item.attribs.toJSON())
     }
 
@@ -21,7 +21,6 @@ const attrsToJSONArray = (list) => {
 const allCommands = [
     ...attrsToJSONArray(text),
 ];
-
 
 const registerCommands = async (whichCommands, isGlobal=true) => {
     const restClient = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);

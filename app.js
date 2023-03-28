@@ -1,24 +1,45 @@
 import * as dotenv from 'dotenv';
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
+
+import text from './commands/text.js';
+
 
 // configure env vars and secrets ;)
 dotenv.config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const addCommandsToCollection = (commands, collection) => {
+    for (const command of commands) {
+        collection.set(command.attribs.name, command)
+    }
+}
 
-client.on('ready', () => {
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+client.commands = new Collection();
+
+// add in all command sub-categories
+addCommandsToCollection(text, client.commands);
+
+client.on(Events.ClientReady, () => {
     console.log(`Logged in as ${client.user.tag}.`);
 });
 
-client.on('interactionCreate', async (interaction) => {
+client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
-    if (interaction.commandName === 'gik') {
-        await interaction.reply('gak!');
+    const command = interaction.client.commands.get(interaction.commandName);
+
+    if (!command) {
+        interaction.reply({ content: "Hey dipshit, that's not a real command.", ephemeral: true });
+        return;
     }
-    else if (interaction.commandName === 'gak') {
-        await interaction.reply('gik!');
+    
+    try {
+        await command.execute(interaction);
     }
+    catch (error) {
+        console.error(error);
+    }
+
 });
 
 client.login(process.env.DISCORD_TOKEN);
