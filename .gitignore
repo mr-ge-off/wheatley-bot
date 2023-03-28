@@ -1,3 +1,5 @@
 __pycache__/
 .idea/
 secrets*
+.env
+node_modules/
