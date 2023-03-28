@@ -1,26 +1,27 @@
 import { REST, Routes } from 'discord.js';
 import * as dotenv from 'dotenv';
 
+import text from './commands/text';
+
 
 // configure env vars and client secrets :D
 dotenv.config();
 
-const GG_COMMANDS = [
-    {
-        name: 'gak',
-        description: 'gik!',
-        type: 1,
-    },
-    {
-        name: 'gik',
-        description: 'gak!',
-        type: 1,
+const regType = process.argv[2] // args 0 and 1 are `node` and the file name, respectively
+
+const attrsToJSONArray = (list) => {
+    ret = [];
+    for (item in list) {
+        ret.push(item.attribs.toJSON())
     }
-];
+
+    return ret;
+}
 
 const allCommands = [
-    ...GG_COMMANDS
+    ...attrsToJSONArray(text),
 ];
+
 
 const registerCommands = async (whichCommands, isGlobal=true) => {
     const restClient = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -33,7 +34,7 @@ const registerCommands = async (whichCommands, isGlobal=true) => {
         console.log('starting command refresh...');
         await restClient.put(
             Routes.applicationCommands(...routeParams),
-            { body: allCommands }
+            { body: whichCommands }
         );
         console.log('refreshed commands!');
     }
@@ -42,5 +43,12 @@ const registerCommands = async (whichCommands, isGlobal=true) => {
     }
 };
 
-
-registerCommands(allCommands);
+if (regType === 'clean') {
+    registerCommands([]);
+}
+else if (regType === 'guild') {
+    registerCommands(allCommands, false)
+}
+else {
+    registerCommands(allCommands);
+}

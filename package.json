@@ -7,7 +7,9 @@
   "scripts": {
     "test": "test",
     "start": "node app.js",
-    "register": "node commands.js"
+    "register": "node register.js",
+    "register-guild": "node register.js guild",
+    "register-clean": "node register.js clean"
   },
   "repository": {
     "type": "git",
@@ -28,7 +30,6 @@
   "dependencies": {
     "@discordjs/builders": "^1.5.0",
     "@discordjs/voice": "^0.15.0",
-    "add": "^2.0.6",
     "discord-interactions": "^3.3.0",
     "discord.js": "^14.8.0",
     "dotenv": "^16.0.3"
