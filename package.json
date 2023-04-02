@@ -2,14 +2,13 @@
   "name": "wheatley-bot",
   "version": "1.0.0",
   "description": "A shitty bot for my shitty friends.",
-  "type": "module",
   "main": "app.js",
   "scripts": {
     "test": "test",
-    "start": "node app.js",
-    "register": "node register.js",
-    "register-guild": "node register.js guild",
-    "register-clean": "node register.js clean"
+    "start": "ts-node app.ts",
+    "register": "ts-node register.ts",
+    "register-guild": "ts-node register.ts guild",
+    "register-clean": "ts-node register.ts clean"
   },
   "repository": {
     "type": "git",
@@ -29,9 +28,13 @@
   "homepage": "https://github.com/mr-ge-off/wheatley-bot#readme",
   "dependencies": {
     "@discordjs/builders": "^1.5.0",
+    "@discordjs/opus": "^0.9.0",
     "@discordjs/voice": "^0.15.0",
+    "@types/node": "^18.15.11",
     "discord-interactions": "^3.3.0",
     "discord.js": "^14.8.0",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.2"
   }
 }
