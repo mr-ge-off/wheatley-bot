@@ -246,6 +246,46 @@ class Voice(commands.Cog, name='voice'):
             after=lambda e: self._disconnect_after_player(ctx, e)
         )
 
+
+    @commands.command()
+    async def ohfuck(self, ctx: Context):
+        """-> Oh Fuc UwU."""
+
+        if not await check_is_playing_invert(ctx):
+            return
+
+        if ctx.voice_client is None:
+            await self.join(ctx)
+
+        fucks = ['./tts/' + item for item in filter(lambda item: 'OF' in item, listdir('tts'))]
+        random.seed()
+        play_path = random.choice(fucks)
+
+        ctx.voice_client.play(
+            PCMVolumeTransformer(FFmpegPCMAudio(play_path), volume=0.5),
+            after=lambda e: self._disconnect_after_player(ctx, e)
+        )
+
+    @commands.command()
+    async def hyeah(self, ctx: Context):
+        """-> Hnnnnyeahh."""
+
+        if not await check_is_playing_invert(ctx):
+            return
+
+        if ctx.voice_client is None:
+            await self.join(ctx)
+
+        hyeahs = ['./tts/' + item for item in filter(lambda item: 'HY' in item, listdir('tts'))]
+        random.seed()
+        play_path = random.choice(hyeahs)
+
+        ctx.voice_client.play(
+            PCMVolumeTransformer(FFmpegPCMAudio(play_path), volume=0.5),
+            after=lambda e: self._disconnect_after_player(ctx, e)
+        )
+
+
     ###########################################################################
     # VOLUME COMMANDS                                                         #
     ###########################################################################
